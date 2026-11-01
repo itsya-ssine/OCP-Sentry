@@ -83,8 +83,8 @@ camera RTSP streams
 ### 1. Clone and configure secrets
 
 ```bash
-git clone https://github.com/<your-username>/ocp-sentry.git
-cd ocp-sentry
+git clone https://github.com/itsya-ssine/OCP-Sentry.git
+cd OCP-Sentry
 cp .env.example .env
 ```
 
