@@ -1,0 +1,26 @@
+# Template for real IP cameras. Copy it to config/cameras.yaml (git-ignored,
+# because RTSP URLs usually embed credentials) and edit:
+#
+#   cp config/cameras.example.yaml config/cameras.yaml
+#
+# detect_url : low-resolution sub-stream, sampled for AI inference
+# record_url : full-resolution main stream, recorded continuously in segments
+#              and used to cut the clip attached to each event
+# Other ready-made examples:
+#   config/cameras.webcam.example.yaml       -> a local webcam
+#   config/cameras.testvideos.example.yaml   -> local video files (no hardware needed)
+
+cameras:
+  - id: gate-north
+    name: "North gate"
+    detect_url: "rtsp://USER:PASSWORD@192.168.1.10:554/stream2"
+    record_url: "rtsp://USER:PASSWORD@192.168.1.10:554/stream1"
+    enabled: true
+    record_enabled: true
+
+  - id: warehouse-1
+    name: "Warehouse 1"
+    detect_url: "rtsp://USER:PASSWORD@192.168.1.11:554/stream2"
+    record_url: "rtsp://USER:PASSWORD@192.168.1.11:554/stream1"
+    enabled: true
+    record_enabled: true

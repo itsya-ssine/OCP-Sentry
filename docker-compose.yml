@@ -1,0 +1,163 @@
+# Orchestration: redis, postgres, ingest, inference, events, api, frontend.
+#
+# Pipeline: ingest -> redis (frames stream) -> inference -> redis
+# (detections stream) -> events -> postgres + redis (events pub/sub) -> api
+# -> frontend (nginx), with segment/clip/thumbnail files passed between
+# ingest/events/api via the shared ./storage bind mount.
+#
+# Build nvr-base:latest first (see build.sh) — every service Dockerfile
+# depends on it via `FROM nvr-base:latest`.
+
+services:
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--save", "", "--appendonly", "no"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    networks: [nvr_net]
+
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: nvr
+      POSTGRES_USER: nvr
+      # Sourced from .env (see .env.example) — compose fails fast with a
+      # clear error instead of silently falling back to a weak default if
+      # it's missing.
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env, see .env.example}
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U nvr -d nvr"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    networks: [nvr_net]
+
+  ingest:
+    build:
+      context: .
+      dockerfile: services/ingest/Dockerfile
+      args:
+        VIDEO_GID: ${VIDEO_GID:-44}
+    restart: unless-stopped
+    depends_on:
+      redis: {condition: service_healthy}
+    environment:
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+    volumes:
+      - ./config:/app/config:ro,Z
+      - ./storage:/app/storage:Z
+    # No `devices:` here on purpose: RTSP cameras and test videos need none,
+    # and a hard-coded /dev/video0 makes `docker compose up` fail on any host
+    # without a webcam. To pass a webcam through (native Linux only), add
+    # docker-compose.webcam.example.yml — see the README.
+    networks: [nvr_net]
+
+  inference:
+    build:
+      context: .
+      dockerfile: services/inference/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      redis: {condition: service_healthy}
+    environment:
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+    volumes:
+      - ./config:/app/config:ro,Z
+    networks: [nvr_net]
+    # Uncomment to run the inference worker on an NVIDIA GPU (requires the
+    # nvidia-container-toolkit on the host and onnxruntime-gpu installed):
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: 1
+    #           capabilities: [gpu]
+    #
+    # One inference process is CPU-bound running all 30 cameras
+    # sequentially. To scale out across several replicas instead, split
+    # the camera set with SHARD_COUNT/SHARD_INDEX (see inference_worker.py
+    # -> _select_shard) — e.g. for 3 replicas, copy this service block
+    # twice more with:
+    #   environment:
+    #     SHARD_COUNT: "3"
+    #     SHARD_INDEX: "1"   # "2" on the third copy
+
+  events:
+    build:
+      context: .
+      dockerfile: services/events/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      redis: {condition: service_healthy}
+      postgres: {condition: service_healthy}
+    environment:
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: "5432"
+      POSTGRES_DB: nvr
+      POSTGRES_USER: nvr
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env, see .env.example}
+    volumes:
+      - ./config:/app/config:ro,Z
+      - ./storage:/app/storage:Z
+    networks: [nvr_net]
+
+  api:
+    build:
+      context: .
+      dockerfile: services/api/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      redis: {condition: service_healthy}
+      postgres: {condition: service_healthy}
+    environment:
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: "5432"
+      POSTGRES_DB: nvr
+      POSTGRES_USER: nvr
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env, see .env.example}
+      API_KEY: ${API_KEY:?set API_KEY in .env, see .env.example}
+      # Empty by default: the frontend is same-origin behind nginx and
+      # doesn't need CORS. Only set this (comma-separated) if you're
+      # calling the API directly from a different origin.
+      CORS_ORIGINS: ${CORS_ORIGINS:-}
+    volumes:
+      - ./config:/app/config:ro,Z
+      - ./storage:/app/storage:ro,Z
+    ports:
+      # Bound to localhost only — nginx (below) is the one public entry
+      # point, published on 8080. This port stays reachable for local
+      # debugging (curl http://localhost:8000/...) without also exposing
+      # the API directly to the LAN/internet on every host interface.
+      - "127.0.0.1:8000:8000"
+    networks: [nvr_net]
+
+  frontend:
+    image: nginx:alpine
+    restart: unless-stopped
+    depends_on: [api]
+    volumes:
+      - ./frontend/index.html:/usr/share/nginx/html/index.html:ro,Z
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro,Z
+    ports:
+      - "8080:80"
+    networks: [nvr_net]
+
+networks:
+  nvr_net:
+
+volumes:
+  pg_data:

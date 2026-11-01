@@ -1,0 +1,31 @@
+# Demo config that replays local video files as if they were cameras — no
+# camera or webcam needed. To use it:
+#
+#   cp config/cameras.testvideos.example.yaml config/cameras.yaml
+#   # put the video files in ./test_videos (see test_videos/README.md)
+#   docker compose -f docker-compose.yml -f docker-compose.testvideos.yml up -d
+#
+# Paths are container paths: ./test_videos is mounted at /app/test_videos by
+# docker-compose.testvideos.yml.
+
+cameras:
+  - id: cam1
+    name: "cam_001"
+    detect_url: "/app/test_videos/VIRAT_S_000002.mp4"
+    record_url: "/app/test_videos/VIRAT_S_000002.mp4"
+    enabled: true
+    record_enabled: true
+
+  - id: cam2
+    name: "cam_002"
+    detect_url: "/app/test_videos/fire2.mp4"
+    record_url: "/app/test_videos/fire2.mp4"
+    enabled: true
+    record_enabled: true
+
+  - id: cam3
+    name: "cam_003"
+    detect_url: "/app/test_videos/nofire1.mp4"
+    record_url: "/app/test_videos/nofire1.mp4"
+    enabled: true
+    record_enabled: true

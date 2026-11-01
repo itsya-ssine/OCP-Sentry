@@ -1,0 +1,21 @@
+# Example single-camera config for testing against your own webcam instead
+# of real RTSP cameras. To use it:
+#
+#   cp config/cameras.webcam.example.yaml config/cameras.yaml
+#
+# (config/cameras.yaml is what every service actually reads and is git-ignored —
+# this file is just a ready-made example you can diff back to.)
+#
+# detect_url / record_url use the same device on purpose (a webcam only
+# has one stream) with record_enabled: false, since most webcams can't be
+# opened by two ffmpeg processes at once. Detection still runs normally;
+# events just won't have a stitched clip, only a thumbnail. Flip it to
+# true if your device supports concurrent opens and you want clips too.
+
+cameras:
+  - id: webcam
+    name: "Webcam"
+    detect_url: "v4l2:/dev/video0"        # Linux. On macOS use: "avfoundation:0"
+    record_url: "v4l2:/dev/video0"        # (index 0 is usually the default cam;
+    record_enabled: false                  #  run `ffmpeg -f avfoundation -list_devices true -i ""` to check)
+    enabled: true

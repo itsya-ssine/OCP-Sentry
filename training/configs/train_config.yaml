@@ -1,0 +1,45 @@
+# Central training configuration. Every script in training/ reads this —
+# change values here rather than editing the scripts directly.
+
+classes:
+  # Final class order for the merged dataset / exported model.
+  # Index in this list = class id used everywhere downstream (Frigate-style NVR config too).
+  0: person
+  1: fire
+  2: smoke
+
+paths:
+  raw_dir: "training/raw"              # untouched downloads land here
+  coco_person_dir: "training/raw/coco_person"
+  dfire_dir: "training/raw/dfire"
+  merged_dir: "training/dataset"       # final YOLO-format dataset used for training
+  runs_dir: "training/runs"
+  export_dir: "training/exported"
+
+coco:
+  # fiftyone zoo dataset name + split(s) to pull person images from
+  splits: ["train", "validation"]
+  max_samples_per_split: 8000          # cap so the person class doesn't overwhelm fire/smoke; tune as needed
+
+dfire:
+  kaggle_dataset: "sayedgamal99/smoke-fire-detection-yolo"
+  source_class_map:
+    0: smoke
+    1: fire
+
+split:
+  val_fraction: 0.15   # fraction of merged dataset held out for validation
+
+train:
+  base_model: "yolov8n.pt"   # swap to yolov8s.pt / yolov9s.pt for higher accuracy at more compute cost
+  imgsz: 640
+  epochs: 150
+  batch: 16
+  patience: 30                # early stopping patience (epochs with no val improvement)
+  device: 0                    # GPU index, or "cpu"
+
+export:
+  formats: ["onnx"]           # add "engine" (TensorRT) or "openvino" as needed for your inference hardware
+  imgsz: 640
+  onnx_opset: 12
+  nms: true                    # bake NMS into the export so inference_worker.py's postprocess() stays simple

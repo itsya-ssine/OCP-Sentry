@@ -1,0 +1,66 @@
+# Detection thresholds, event timing, and storage/retention settings.
+# Shared by every service via common/config.py — change values here rather
+# than in code. Redis/Postgres host+port can be overridden by environment
+# variables (see docker-compose.yml), which is how the same file works
+# both bare-metal and inside containers.
+
+detection:
+  frame_sample_fps: 2              # frames/sec pulled from each camera's detect_url for inference
+  confidence_threshold: 0.5        # fallback threshold if a class has no per-class override
+  classes_of_interest: ["person", "fire", "smoke"]
+  per_class_thresholds:
+    person: 0.6
+    fire: 0.45
+    smoke: 0.45
+
+events:
+  debounce_frames: 3               # consecutive above-threshold detections required to open an event
+  cooldown_seconds: 15              # seconds without a matching detection before an open event closes
+  min_event_duration_seconds: 1    # events shorter than this (single-frame flickers) are discarded
+  pre_roll_seconds: 5              # seconds of footage included before the event's first detection
+  post_roll_seconds: 5             # seconds of footage included after the event's last detection
+
+storage:
+  segments_dir: "storage/segments"
+  clips_dir: "storage/clips"
+  thumbnails_dir: "storage/thumbnails"
+  segment_duration_seconds: 10     # length of each continuously-recorded segment file
+  segment_retention_hours: 24      # raw segments older than this are deleted (event clips are kept separately)
+  clip_retention_days: 14          # stitched event clips older than this are deleted
+
+redis:
+  host: "redis"
+  port: 6379
+  frames_stream_maxlen: 500        # approx cap per-camera frame stream (XADD ... MAXLEN ~)
+  detections_stream: "detections"
+  events_channel: "events"         # pub/sub channel the API relays to WebSocket clients
+
+postgres:
+  host: "postgres"
+  port: 5432
+  db: "nvr"
+  user: "nvr"
+  # No password here on purpose — it must be supplied via the
+  # POSTGRES_PASSWORD environment variable (see .env.example) so a
+  # real credential never ends up committed to source control.
+
+model:
+  path: "config/model/custom_model.onnx"
+  labelmap_path: "config/model/custom_labelmap.txt"
+  input_size: 640
+  batch_size: 4                    # frames pulled per inference loop iteration
+
+api:
+  host: "0.0.0.0"
+  port: 8000
+  # Every REST/WS request must present the API_KEY environment variable
+  # (see .env.example) via the X-API-Key header (or ?api_key= for the
+  # WebSocket, since browsers can't set custom headers on the WS handshake).
+  #
+  # Origins allowed to make browser requests to this API. Override with the
+  # comma-separated CORS_ORIGINS env var in production (e.g. the exact
+  # scheme+host+port you serve the frontend from). Left empty by default —
+  # same-origin requests proxied through nginx (see nginx.conf) don't need
+  # CORS at all, so only set this if you're serving the frontend from a
+  # different origin than the API.
+  cors_origins: []

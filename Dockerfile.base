@@ -1,0 +1,46 @@
+# Shared base image for every NVR service. Installs ffmpeg (used directly
+# by ingest.py and event_manager.py via subprocess) plus the common
+# Python dependency set, and bakes in common/ so every service's
+# `from common.config import ...` works without repeating the copy in
+# each Dockerfile.
+#
+# Build this once before the per-service images (see build.sh):
+#   docker build -t nvr-base:latest -f Dockerfile.base .
+FROM python:3.11-slim
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ffmpeg \
+    libgl1 \
+    libglib2.0-0 \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+COPY requirements.txt /app/requirements.txt
+RUN pip install --no-cache-dir --break-system-packages -r requirements.txt
+
+COPY common/ /app/common/
+
+# Non-root user every service Dockerfile switches to via `USER nvr` after
+# copying its own code in. Running as root inside the container buys an
+# attacker who compromises one of these services (e.g. via a crafted RTSP
+# stream hitting ffmpeg, or a future dependency CVE) a much easier path to
+# doing damage on the host — there's no reason any of these processes need
+# root once they've bound their port / opened their device.
+#
+# Pinned to uid/gid 1000 (the default first-user id on most single-user
+# Linux hosts) rather than a system-assigned id, so the ./storage and
+# ./config bind mounts in docker-compose.yml are writable out of the box
+# for the common case. If your host user isn't 1000 and you hit permission
+# errors on ./storage, either `sudo chown -R 1000:1000 storage/` on the
+# host, or rebuild with `--build-arg APP_UID=$(id -u) --build-arg
+# APP_GID=$(id -g)` to match it.
+ARG APP_UID=1000
+ARG APP_GID=1000
+RUN groupadd -g "${APP_GID}" nvr \
+    && useradd -u "${APP_UID}" -g nvr -d /app -s /usr/sbin/nologin nvr \
+    && chown -R nvr:nvr /app
+
+ENV PYTHONPATH=/app
+ENV NVR_ROOT=/app
+ENV PYTHONUNBUFFERED=1

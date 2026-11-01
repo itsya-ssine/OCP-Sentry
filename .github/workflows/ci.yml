@@ -1,0 +1,47 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Python syntax check
+        run: python -m compileall -q common services training
+
+      - name: YAML parses
+        run: |
+          pip install pyyaml
+          python - <<'PY'
+          import glob, yaml
+          files = glob.glob("config/*.yaml") + glob.glob("training/configs/*.yaml") + glob.glob("docker-compose*.yml")
+          for f in files:
+              yaml.safe_load(open(f))
+              print("ok", f)
+          PY
+
+      - name: Shell scripts parse
+        run: bash -n build.sh up.sh
+
+      - name: C sources compile
+        run: |
+          cc -O2 -Wall -o /tmp/mjpeg_split services/ingest/mjpeg_split.c
+          cc -O2 -Wall -fPIC -shared -o /tmp/libshmring.so common/shm_ring.c -lrt -pthread
+
+      - name: docker compose config is valid
+        env:
+          POSTGRES_PASSWORD: ci-placeholder
+          API_KEY: ci-placeholder-ci-placeholder
+        run: |
+          docker compose config -q
+          docker compose -f docker-compose.yml -f docker-compose.testvideos.yml config -q
+          docker compose -f docker-compose.yml -f docker-compose.webcam.example.yml config -q

@@ -1,0 +1,13 @@
+# Keep the Docker build context small: images only need common/, config/,
+# services/ and requirements.txt. Without this, ./storage and ./test_videos
+# (potentially many GB of video) are sent to the Docker daemon on every build.
+.git
+.github
+.env
+docs
+storage
+test_videos
+training
+frontend
+**/__pycache__
+*.md

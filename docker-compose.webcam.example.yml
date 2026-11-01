@@ -1,0 +1,15 @@
+# Optional docker-compose override for testing against a webcam *on native
+# Linux* (docker-compose can pass through /dev/video0 there). Use it with:
+#
+#   docker compose -f docker-compose.yml -f docker-compose.webcam.example.yml up -d
+#
+# On macOS/Windows, Docker Desktop cannot pass a host webcam through to a
+# Linux container at all — there, skip this file and run
+# `python services/ingest/ingest.py` directly on the host instead (see
+# README "Testing with a webcam" section), while redis/postgres/inference/
+# events/api/frontend keep running in docker compose as usual.
+
+services:
+  ingest:
+    devices:
+      - /dev/video0:/dev/video0

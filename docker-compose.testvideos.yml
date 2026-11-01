@@ -1,0 +1,13 @@
+# Compose override for testing against local video files (person/fire/smoke
+# clips) instead of real RTSP cameras or a webcam. Use it with:
+#
+#   docker compose -f docker-compose.yml -f docker-compose.testvideos.yml up -d
+#
+# It mounts ./test_videos read-only into the ingest container at
+# /app/test_videos (matching the paths used in
+# config/cameras.testvideos.example.yaml).
+
+services:
+  ingest:
+    volumes:
+      - ./test_videos:/app/test_videos:ro

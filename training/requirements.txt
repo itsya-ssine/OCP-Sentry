@@ -1,0 +1,6 @@
+ultralytics>=8.2.34        # anything >=8.2.34 handles PyTorch 2.6+ weights_only loading (we saw 8.4.96 run fine)
+fiftyone>=1.0.1             # 0.24.x has a broken `classes` filter for COCO zoo downloads; fixed in 1.0.1+
+pyyaml>=6.0.2                # google-adk requires >=6.0.2; 6.0.1 conflicted
+opencv-python-headless>=4.10.0.84   # first build compiled against the NumPy 2.x ABI
+tqdm>=4.67                   # datasets/tobler/dataproc-spark-connect all require >=4.67
+kagglehub>=0.3.4             # used by prepare_dfire.py to pull the D-Fire mirror (the GitHub repo has no data)

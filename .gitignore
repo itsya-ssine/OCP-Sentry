@@ -1,0 +1,51 @@
+# --- Secrets & local config (never commit) ---------------------------------
+.env
+.env.*
+!.env.example
+# Real camera config: RTSP URLs usually embed credentials.
+config/cameras.yaml
+
+# --- Model weights & datasets (large / regenerated) ------------------------
+# Train your own (training/) or export a stock one — see README.
+# Want to commit your trained model anyway?  git add -f config/model/custom_model.onnx
+*.onnx
+*.pt
+*.engine
+training/raw/
+training/dataset/
+training/runs/
+training/exported/
+
+# --- Runtime output (bind-mounted by docker compose) -----------------------
+storage/clips/*
+storage/segments/*
+storage/thumbnails/*
+!storage/clips/.gitkeep
+!storage/segments/.gitkeep
+!storage/thumbnails/.gitkeep
+
+# --- Local demo footage ----------------------------------------------------
+test_videos/*
+!test_videos/README.md
+
+# --- Build artifacts -------------------------------------------------------
+common/libshmring.so
+services/ingest/mjpeg_split
+*.so
+*.o
+
+# --- Python ----------------------------------------------------------------
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+.ipynb_checkpoints/
+
+# --- OS / editors ----------------------------------------------------------
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
